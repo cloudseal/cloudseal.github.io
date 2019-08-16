@@ -16,6 +16,10 @@
 #
 #     curl -sSLf https://cloudseal.io/getit | sudo bash
 #
+# or to install to a custom location:
+#
+#     curl -sSLf https://cloudseal.io/getit | bash -s custom_dir
+#
 # Yes, you're right that running shell scripts off the internet with sudo is
 # evil. Don't be lazy and please read through this script before running it.
 #
