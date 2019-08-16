@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+
+# A script to download and install the latest Cloudseal alpha.
+#
+# This will install the following files on the system:
+#
+#     /usr/cloudseal/
+#     /usr/bin/cloudseal -> /usr/cloudseal/bin/cloudseal
+#     /usr/bin/cs -> /usr/cloudseal/bin/cs
+#
+# You can find the latest version of this script at:
+#
+#     https://cloudseal.io/getit
+#
+# You may also run this script with:
+#
+#     curl -sSLf https://cloudseal.io/getit | sudo bash
+#
+# Yes, you're right that running shell scripts off the internet with sudo is
+# evil. Don't be lazy and please read through this script before running it.
+#
+# When packages for each distro are available, please install those instead.
+
+set -Eeou pipefail
+
+# TODO: Change this to point to the latest alpha package.
+TARBALL="https://www.cloudseal.io/s/cloudseal_alpha_pkg_01667.tbz"
+
+# Default root for the installation
+INSTALL_ROOT="${INSTALL_ROOT:-/usr}"
+
+usage() {
+    cat 1>&2 <<EOF
+A script to download and install the latest Cloudseal alpha.
+
+USAGE:
+    getit [--help] [root]
+
+FLAGS:
+    -h, --help  Prints help information.
+
+POSITIONAL ARGUMENTS:
+    root:       Root of the installation directory. [default: "$INSTALL_ROOT"]
+EOF
+}
+
+# Create a temporary directory to extract the files to.
+TEMPDIR=$(mktemp -d)
+
+cleanup() {
+    echo ":: Cleaning up..."
+    rm -rf -- "$TEMPDIR"
+}
+
+main() {
+    local _positional=()
+
+    for arg in "$@"; do
+        case "$arg" in
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            -*)
+                echo "Error: Unknown option '$arg' specified."
+                exit 1
+                ;;
+            *)
+                if [[ ${#_positional[*]} -gt 0 ]]; then
+                    echo "Error: Too many positional arguments given."
+                    exit 1
+                fi
+
+                _positional+=("$arg")
+                shift
+                ;;
+        esac
+    done
+
+    local _root=$(readlink -f ${_positional[0]:-$INSTALL_ROOT})
+
+    echo ":: Downloading..."
+
+    # Download and extract to a temporary directory.
+    curl -sfSL "$TARBALL" | tar -xjf - -C "$TEMPDIR"
+
+    # FIXME: Remove files that shouldn't be there. These files shouldn't exist
+    # in the tarball in the first place.
+    rm -f \
+        $TEMPDIR/root/.gitignore \
+        $TEMPDIR/root/bin/.gitignore \
+        $TEMPDIR/root/build/.gitignore \
+        $TEMPDIR/root/dettrace/.gitignore \
+        $TEMPDIR/root/dettrace/bin/.gitignore \
+        $TEMPDIR/root/dettrace/lib/.gitignore \
+        $TEMPDIR/root/dev/.gitignore \
+        $TEMPDIR/root/etc/.gitignore \
+        $TEMPDIR/root/lib/.gitignore \
+        $TEMPDIR/root/lib64/.gitignore \
+        $TEMPDIR/root/proc/.gitignore \
+        $TEMPDIR/root/usr/.gitignore
+    rm -rf $TEMPDIR/root/tmp/*
+
+    echo ":: Installing to $_root..."
+
+    mkdir -p -- \
+        "$_root/cloudseal/bin" \
+        "$_root/cloudseal/examples" \
+        "$_root/bin"
+
+    install $TEMPDIR/bin/* $_root/cloudseal/bin/
+    install $TEMPDIR/examples/* $_root/cloudseal/examples/
+    install -m644 $TEMPDIR/initramfs.cpio $_root/cloudseal/
+
+    cp -r $TEMPDIR/root $_root/cloudseal/root
+
+    ln -sf "$_root/cloudseal/bin/cloudseal" "$_root/bin/cloudseal"
+    ln -sf "$_root/cloudseal/bin/cs" "$_root/bin/cs"
+}
+
+# Clean up our mess if anything fails or is interrupted.
+trap cleanup INT TERM ERR
+
+main "$@"
+
+cleanup
+
+echo ":: Done."
