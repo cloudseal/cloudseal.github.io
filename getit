@@ -28,10 +28,13 @@
 set -Eeou pipefail
 
 # TODO: Change this to point to the latest alpha package.
-TARBALL="https://www.cloudseal.io/s/cloudseal_alpha_pkg_01667.tbz"
+TARNAME="cloudseal_alpha_pkg_01667.tbz"
+TARURL="https://www.cloudseal.io/s/$TARNAME"
 
 # Default root for the installation
 INSTALL_ROOT="${INSTALL_ROOT:-/usr}"
+# Fully resolved root:
+RESOLVED_ROOT=""
 
 usage() {
     cat 1>&2 <<EOF
@@ -51,9 +54,42 @@ EOF
 # Create a temporary directory to extract the files to.
 TEMPDIR=$(mktemp -d)
 
+# Cleanup after an install
 cleanup() {
     echo ":: Cleaning up..."
     rm -rf -- "$TEMPDIR"
+}
+
+abort_install() {
+    cleanup
+    if [ -d "$RESOLVED_ROOT/cloudseal" ]; then    
+	echo ":: Removing partially installed files, if any."
+	if [ -e "$RESOLVED_ROOT/bin/cloudseal" ]; then
+	    rm "$RESOLVED_ROOT/bin/cloudseal"
+	fi
+	if [ -e "$RESOLVED_ROOT/cloudseal" ]; then
+	    rm -rf "$RESOLVED_ROOT/cloudseal"
+	fi
+    fi
+}
+
+# This need not be idempotent as it should only be called once.
+handle_exit() {
+    local _prev=$?
+    if [ "$_prev" != 0 ]; then      
+      echo ":: Caught error. A command exited with code $_prev"
+      abort_install
+      echo ":: Install failed due to above errors."
+      exit 255
+    fi
+}
+
+handle_interuption() {
+    echo ":: Install script interrupted, cleaning up."
+    abort_install
+    echo ":: Install failed due to interruption."
+    trap - EXIT
+    exit 255
 }
 
 main() {
@@ -81,12 +117,13 @@ main() {
         esac
     done
 
-    local _root=$(readlink -f ${_positional[0]:-$INSTALL_ROOT})
-
+    local _root
+    _root="${_positional[0]:-$INSTALL_ROOT}"
+    RESOLVED_ROOT=$(readlink "$_root" || echo "$_root")
     echo ":: Downloading..."
 
     # Download and extract to a temporary directory.
-    curl -sfSL "$TARBALL" | tar -xjf - -C "$TEMPDIR"
+    curl -sfSL "$TARURL" | tar -xjf - -C "$TEMPDIR"
 
     # FIXME: Remove files that shouldn't be there. These files shouldn't exist
     # in the tarball in the first place.
@@ -105,28 +142,34 @@ main() {
         $TEMPDIR/root/usr/.gitignore
     rm -rf $TEMPDIR/root/tmp/*
 
-    echo ":: Installing to $_root..."
-
+    if [ -e "$RESOLVED_ROOT/cloudseal" ]; then
+	echo ":: Removing previous Cloudseal installation..."
+	rm -rf "$RESOLVED_ROOT/cloudseal"
+    fi
+    
+    echo ":: Installing to $RESOLVED_ROOT..."
     mkdir -p -- \
-        "$_root/cloudseal/bin" \
-        "$_root/cloudseal/examples" \
-        "$_root/bin"
+        "$RESOLVED_ROOT/cloudseal/bin" \
+        "$RESOLVED_ROOT/cloudseal/examples" \
+        "$RESOLVED_ROOT/bin"
 
-    install $TEMPDIR/bin/* $_root/cloudseal/bin/
-    install $TEMPDIR/examples/* $_root/cloudseal/examples/
-    install -m644 $TEMPDIR/initramfs.cpio $_root/cloudseal/
+    install $TEMPDIR/bin/*                "$RESOLVED_ROOT/cloudseal/bin/"
+    install $TEMPDIR/examples/*           "$RESOLVED_ROOT/cloudseal/examples/"
+    install -m644 $TEMPDIR/initramfs.cpio "$RESOLVED_ROOT/cloudseal/"
 
-    cp -r $TEMPDIR/root $_root/cloudseal/root
+    cp -r $TEMPDIR/root $RESOLVED_ROOT/cloudseal/root
 
-    ln -sf "$_root/cloudseal/bin/cloudseal" "$_root/bin/cloudseal"
-    ln -sf "$_root/cloudseal/bin/cs" "$_root/bin/cs"
+    # The determinism-only alpha uses a "cloudseal" CLI:
+    ln -sf "$RESOLVED_ROOT/cloudseal/bin/cloudseal" "$RESOLVED_ROOT/bin/cloudseal"
+    # The full record+repro interface will use a "cs" command:
+    # ln -sf "$RESOLVED_ROOT/cloudseal/bin/cs" "$RESOLVED_ROOT/bin/cs"
 }
 
 # Clean up our mess if anything fails or is interrupted.
-trap cleanup INT TERM ERR
+trap handle_exit EXIT
+trap handle_interuption INT TERM 
 
 main "$@"
 
 cleanup
-
 echo ":: Done."
