@@ -1,19 +1,38 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
 - master
 
-pool:
-  vmImage: 'ubuntu-latest'
+jobs:
+- job: vm_ubuntu
+  pool:
+    vmImage: 'ubuntu-latest'
+  steps:
+  - script: |
+      bash ./tests/run_all.sh
+    displayName: 'Run Tests'
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+- job: docker_ubuntu
+  pool:
+    vmImage: 'ubuntu-latest'
+  container:
+    image: 'ubuntu:16.04'
+    options: "--name ci-container -v /usr/bin/docker:/tmp/docker:ro"
+  steps:
+  - script: |
+      /tmp/docker exec -t -u 0 ci-container \
+      sh -c "apt-get update && DEBIAN_FRONTEND=noninteractive apt-get -o Dpkg::Options::="--force-confold" -y install sudo"
+    displayName: 'install sudo'
+  - script: |
+      sudo apt-get -y install curl bzip2
+    displayName: 'install packages'
+  - script: |
+      bash ./tests/run_all.sh
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+- job: docker_fedora
+  pool:
+    vmImage: 'ubuntu-latest'
+  container: 'fedora:30'
+  steps:
+  - script: |
+      sudo dnf -y install bzip2
+  - script: |
+      bash ./tests/run_all.sh

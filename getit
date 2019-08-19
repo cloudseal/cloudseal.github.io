@@ -62,21 +62,21 @@ cleanup() {
 
 abort_install() {
     cleanup
-    if [ -d "$RESOLVED_ROOT/cloudseal" ]; then    
-	echo ":: Removing partially installed files, if any."
-	if [ -e "$RESOLVED_ROOT/bin/cloudseal" ]; then
-	    rm "$RESOLVED_ROOT/bin/cloudseal"
-	fi
-	if [ -e "$RESOLVED_ROOT/cloudseal" ]; then
-	    rm -rf "$RESOLVED_ROOT/cloudseal"
-	fi
+    if [ -d "$RESOLVED_ROOT/cloudseal" ]; then
+        echo ":: Removing partially installed files, if any."
+        if [ -e "$RESOLVED_ROOT/bin/cloudseal" ]; then
+            rm "$RESOLVED_ROOT/bin/cloudseal"
+        fi
+        if [ -e "$RESOLVED_ROOT/cloudseal" ]; then
+            rm -rf "$RESOLVED_ROOT/cloudseal"
+        fi
     fi
 }
 
 # This need not be idempotent as it should only be called once.
 handle_exit() {
     local _prev=$?
-    if [ "$_prev" != 0 ]; then      
+    if [ "$_prev" != 0 ]; then
       echo ":: Caught error. A command exited with code $_prev"
       abort_install
       echo ":: Install failed due to above errors."
@@ -117,9 +117,7 @@ main() {
         esac
     done
 
-    local _root
-    _root="${_positional[0]:-$INSTALL_ROOT}"
-    RESOLVED_ROOT=$(readlink "$_root" || echo "$_root")
+    RESOLVED_ROOT="${_positional[0]:-$INSTALL_ROOT}"
     echo ":: Downloading..."
 
     # Download and extract to a temporary directory.
@@ -143,11 +141,11 @@ main() {
     rm -rf $TEMPDIR/root/tmp/*
 
     if [ -e "$RESOLVED_ROOT/cloudseal" ]; then
-	echo ":: Removing previous Cloudseal installation..."
-	rm -rf "$RESOLVED_ROOT/cloudseal"
+        echo ":: Removing previous Cloudseal installation..."
+        rm -rf "$RESOLVED_ROOT/cloudseal"
     fi
-    
-    echo ":: Installing to $RESOLVED_ROOT..."
+
+    echo ":: Installing to '$RESOLVED_ROOT'..."
     mkdir -p -- \
         "$RESOLVED_ROOT/cloudseal/bin" \
         "$RESOLVED_ROOT/cloudseal/examples" \
@@ -157,17 +155,18 @@ main() {
     install $TEMPDIR/examples/*           "$RESOLVED_ROOT/cloudseal/examples/"
     install -m644 $TEMPDIR/initramfs.cpio "$RESOLVED_ROOT/cloudseal/"
 
-    cp -r $TEMPDIR/root $RESOLVED_ROOT/cloudseal/root
+    cp -r "$TEMPDIR/root" "$RESOLVED_ROOT/cloudseal/root"
 
-    # The determinism-only alpha uses a "cloudseal" CLI:
-    ln -sf "$RESOLVED_ROOT/cloudseal/bin/cloudseal" "$RESOLVED_ROOT/bin/cloudseal"
+    # The determinism-only alpha uses a "cloudseal" CLI.
+    ln -sf "../cloudseal/bin/cloudseal" "$RESOLVED_ROOT/bin/cloudseal"
+
     # The full record+repro interface will use a "cs" command:
     # ln -sf "$RESOLVED_ROOT/cloudseal/bin/cs" "$RESOLVED_ROOT/bin/cs"
 }
 
 # Clean up our mess if anything fails or is interrupted.
 trap handle_exit EXIT
-trap handle_interuption INT TERM 
+trap handle_interuption INT TERM
 
 main "$@"
 
