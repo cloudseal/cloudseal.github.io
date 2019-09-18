@@ -29,7 +29,7 @@ test_relative_install() {
     ./getit "$TEMP"
 
     # Make sure we can execute it
-    "$TEMP/bin/cloudseal" --help
+    "$TEMP/bin/cloudseal" --version
 }
 
 # Test that we can install to the system.
@@ -39,7 +39,7 @@ test_absolute_install() {
     sudo ./getit
 
     # Make sure it is in $PATH and can be executed.
-    cloudseal --help
+    cloudseal --version
 }
 
 # Run all the tests.

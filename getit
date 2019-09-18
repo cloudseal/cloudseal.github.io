@@ -27,8 +27,7 @@
 
 set -Eeou pipefail
 
-# TODO: Change this to point to the latest alpha package.
-TARNAME="cloudseal_alpha_pkg_01667.tbz"
+TARNAME="cloudseal_alpha_021-816.tbz"
 TARURL="https://www.cloudseal.io/s/$TARNAME"
 
 # Default root for the installation
@@ -123,45 +122,18 @@ main() {
     # Download and extract to a temporary directory.
     curl -sfSL "$TARURL" | tar -xjf - -C "$TEMPDIR"
 
-    # FIXME: Remove files that shouldn't be there. These files shouldn't exist
-    # in the tarball in the first place.
-    rm -f \
-        $TEMPDIR/root/.gitignore \
-        $TEMPDIR/root/bin/.gitignore \
-        $TEMPDIR/root/build/.gitignore \
-        $TEMPDIR/root/dettrace/.gitignore \
-        $TEMPDIR/root/dettrace/bin/.gitignore \
-        $TEMPDIR/root/dettrace/lib/.gitignore \
-        $TEMPDIR/root/dev/.gitignore \
-        $TEMPDIR/root/etc/.gitignore \
-        $TEMPDIR/root/lib/.gitignore \
-        $TEMPDIR/root/lib64/.gitignore \
-        $TEMPDIR/root/proc/.gitignore \
-        $TEMPDIR/root/usr/.gitignore
-    rm -rf $TEMPDIR/root/tmp/*
-
     if [ -e "$RESOLVED_ROOT/cloudseal" ]; then
         echo ":: Removing previous Cloudseal installation..."
         rm -rf "$RESOLVED_ROOT/cloudseal"
     fi
 
     echo ":: Installing to '$RESOLVED_ROOT'..."
-    mkdir -p -- \
-        "$RESOLVED_ROOT/cloudseal/bin" \
-        "$RESOLVED_ROOT/cloudseal/examples" \
-        "$RESOLVED_ROOT/bin"
 
-    install $TEMPDIR/bin/*                "$RESOLVED_ROOT/cloudseal/bin/"
-    install $TEMPDIR/examples/*           "$RESOLVED_ROOT/cloudseal/examples/"
-    install -m644 $TEMPDIR/initramfs.cpio "$RESOLVED_ROOT/cloudseal/"
-
-    cp -r "$TEMPDIR/root" "$RESOLVED_ROOT/cloudseal/root"
+    cp -r "$TEMPDIR/cloudseal" "$RESOLVED_ROOT/cloudseal"
 
     # The determinism-only alpha uses a "cloudseal" CLI.
+    mkdir -p -- "$RESOLVED_ROOT/bin"
     ln -sf "../cloudseal/bin/cloudseal" "$RESOLVED_ROOT/bin/cloudseal"
-
-    # The full record+repro interface will use a "cs" command:
-    # ln -sf "$RESOLVED_ROOT/cloudseal/bin/cs" "$RESOLVED_ROOT/bin/cs"
 }
 
 # Clean up our mess if anything fails or is interrupted.
