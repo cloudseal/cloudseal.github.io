@@ -27,7 +27,7 @@
 
 set -Eeou pipefail
 
-TARNAME="cloudseal_alpha_021-816.tbz"
+TARNAME="cloudseal_alpha_021-858.tbz"
 TARURL="https://www.cloudseal.io/s/$TARNAME"
 
 # Default root for the installation
